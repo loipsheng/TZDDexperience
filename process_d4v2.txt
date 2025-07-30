@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# 设置文件名
+log_file="log_testtime_app_cnf_arjun"
+result_file="D4v2_App_arjun.txt"
+patched_file="D4v2_App_arjun_patched.txt"
+
+# 提取 log 中的测例名，去路径、去重
+log_cases=$(awk '{split($1,a,"/"); print a[length(a)]}' "$log_file" | sort | uniq)
+
+# 将结果文件读入 associative array（哈希表）
+declare -A result_map
+
+while read -r name value; do
+    result_map["$name"]="$value"
+done < "$result_file"
+
+# 用于输出新结果
+> "$patched_file"
+
+# 计数器
+unresolved_count=0
+
+for case in $log_cases; do
+    val="${result_map[$case]}"
+    if [ -z "$val" ]; then
+        # 不存在，直接认为无法求解
+        echo "$case -1" >> "$patched_file"
+        unresolved_count=$((unresolved_count + 1))
+    elif [ "$val" = "-1" ]; then
+        # 已经是 -1，不重复加
+        echo "$case -1" >> "$patched_file"
+        unresolved_count=$((unresolved_count + 1))
+    else
+        # 替换为 -1
+        echo "$case -1" >> "$patched_file"
+        unresolved_count=$((unresolved_count + 1))
+    fi
+    # 从原 map 中删除，后面剩下的是没出现在 log 的
+    unset result_map["$case"]
+done
+
+# 把剩下的原结果也加进去（即未出现在 log 的）
+for key in "${!result_map[@]}"; do
+    echo "$key ${result_map[$key]}" >> "$patched_file"
+done
+
+# 输出最终统计信息
+echo "修正后的结果写入：$patched_file"
+echo "无法求解的测例数量：$unresolved_count"
