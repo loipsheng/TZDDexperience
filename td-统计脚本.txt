@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# 文件路径
+log_file="log_testtime_app_cnf_arjun"
+result_file="SharpSat-td_APP_arjun.txt"
+patched_file="SharpSat-td_APP_arjun_patched.txt"
+
+# 提取 log 中测例名（不含路径），去重
+log_cases=$(awk '{split($1,a,"/"); print a[length(a)]}' "$log_file" | sort | uniq)
+
+# 使用关联数组读取原结果
+declare -A result_map
+
+while read -r name value; do
+    result_map["$name"]="$value"
+done < "$result_file"
+
+# 初始化输出文件
+> "$patched_file"
+unresolved_count=0
+
+# 将 log 中的测例写入新文件，值设为 -1
+for case in $log_cases; do
+    echo "$case -1" >> "$patched_file"
+    unresolved_count=$((unresolved_count + 1))
+    # 移除已处理项，剩下的表示没在 log 中
+    unset result_map["$case"]
+done
+
+# 将剩下未受影响的测例也写入文件
+for name in "${!result_map[@]}"; do
+    echo "$name ${result_map[$name]}" >> "$patched_file"
+done
+
+# 输出信息
+echo "修正后的结果保存至：$patched_file"
+echo "无法求解的测例数量：$unresolved_count"
